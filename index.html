@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Easy Vocabulary</title>
+    <title>Lug'at Yodlash Ilovasi (Onlayn)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +14,7 @@
         .card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
         .page { display: none; }
         .page.active { display: block; }
-        #translate-btn:disabled, #add-word-form button[type=submit]:disabled { cursor: not-allowed; opacity: 0.7; }
+        #translate-btn:disabled, #add-word-form button[type=submit]:disabled, .quiz-btn:disabled { cursor: not-allowed; opacity: 0.7; }
         .loader {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #4f46e5;
@@ -40,14 +40,14 @@
             </header>
 
             <div class="flex justify-center border-b border-gray-200 mb-6">
-                <button id="nav-add" class="tab-btn flex-1 py-3 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-200 transition rounded-t-lg active">So'z qo'shish</button>
+                <button id="nav-add" class="tab-btn flex-1 py-3 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-200 transition rounded-t-lg">So'z qo'shish</button>
                 <button id="nav-quiz" class="tab-btn flex-1 py-3 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-200 transition rounded-t-lg">Test</button>
                 <button id="nav-stats" class="tab-btn flex-1 py-3 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-200 transition rounded-t-lg">Statistika</button>
             </div>
 
             <main>
-                <!-- Sahifalar -->
-                <div id="page-add" class="page active">
+                <!-- So'z qo'shish sahifasi -->
+                <div id="page-add" class="page">
                     <form id="add-word-form">
                         <div class="space-y-4">
                             <div>
@@ -68,11 +68,33 @@
                         <button type="submit" class="mt-6 w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">Qo'shish</button>
                     </form>
                 </div>
+                <!-- Test sahifasi -->
                 <div id="page-quiz" class="page">
-                    <!-- Quiz content will be same -->
+                    <div id="quiz-container" class="text-center">
+                        <div id="quiz-start-screen">
+                            <h3 class="text-lg font-semibold text-gray-800">Testga tayyormisiz?</h3>
+                            <p id="quiz-word-count" class="text-gray-500 my-4"></p>
+                            <button id="start-quiz-btn" class="quiz-btn w-full bg-green-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-green-700 transition">Testni boshlash</button>
+                        </div>
+                        <div id="quiz-question-screen" class="hidden">
+                            <p class="text-sm text-gray-500 mb-2">Quyidagi so'zning tarjimasini toping:</p>
+                            <h2 id="question-word" class="text-3xl font-bold text-indigo-600 mb-4"></h2>
+                            <form id="quiz-form">
+                                <input type="text" id="answer-input" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-center text-lg" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                                <button type="submit" class="quiz-btn mt-4 w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-indigo-700 transition">Tekshirish</button>
+                            </form>
+                        </div>
+                         <div id="quiz-end-screen" class="hidden">
+                             <h3 class="text-xl font-bold text-green-600">Tabriklaymiz!</h3>
+                             <p class="text-gray-600 mt-2">Siz barcha so'zlar bo'yicha testni yakunladingiz.</p>
+                             <button id="restart-quiz-btn" class="quiz-btn mt-6 w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-indigo-700 transition">Bosh sahifaga</button>
+                         </div>
+                    </div>
                 </div>
+                <!-- Statistika sahifasi -->
                 <div id="page-stats" class="page">
-                    <!-- Stats content will be same -->
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">So'zlar statistikasi</h3>
+                    <div id="stats-container" class="space-y-3"></div>
                 </div>
             </main>
             <div id="message-box" class="mt-4 text-center text-sm font-medium"></div>
@@ -88,19 +110,19 @@
         // Firebase SDK'larini import qilish
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =================================================================================
         // ===== 1-QADAM: FIREBASE LOYIHANGIZDAN NUSXALAGAN KONFIGURATSIYANI SHU YERGA QO'YING =====
         // =================================================================================
         const firebaseConfig = {
-            apiKey: "AIzaSyCmdgGGNJzgwjVEa8DSwxFpMseONCXzkfY",
-            authDomain: "dictionary-project-5c21c.firebaseapp.com",
-            projectId: "dictionary-project-5c21c",
-            storageBucket: "dictionary-project-5c21c.firebasestorage.app",
-            messagingSenderId: "237098520221",
-            appId: "1:237098520221:web:450ac78aa2bb0879040e74",
-            measurementId: "G-B4LWEFCLF6"
+          apiKey: "AIzaSyCmdgGGNJzgwjVEa8DSwxFpMseONCXzkfY",
+          authDomain: "dictionary-project-5c21c.firebaseapp.com",
+          projectId: "dictionary-project-5c21c",
+          storageBucket: "dictionary-project-5c21c.firebasestorage.app",
+          messagingSenderId: "237098520221",
+          appId: "1:237098520221:web:450ac78aa2bb0879040e74",
+          measurementId: "G-B4LWEFCLF6"
         };
         // =================================================================================
 
@@ -112,61 +134,74 @@
         const SHEETS = ["Hourly", "Daily", "Weekly", "Monthly", "Learned"];
         let vocabulary = {};
         let userId = null;
-        let unsubscribe = null; // onSnapshot'ni to'xtatish uchun
+        let unsubscribe = null; 
+        let currentQuiz = [];
+        let currentQuestionIndex = 0;
 
         // HTML elementlarini topish
         const mainContainer = document.getElementById('main-container');
         const appLoader = document.getElementById('app-loader');
+        const navButtons = { add: document.getElementById('nav-add'), quiz: document.getElementById('nav-quiz'), stats: document.getElementById('nav-stats') };
+        const pages = { add: document.getElementById('page-add'), quiz: document.getElementById('page-quiz'), stats: document.getElementById('page-stats') };
         const addWordForm = document.getElementById('add-word-form');
         const englishWordInput = document.getElementById('english-word');
         const uzbekWordInput = document.getElementById('uzbek-word');
         const messageBox = document.getElementById('message-box');
-        // ... (boshqa elementlar avvalgidek qoladi)
+        const translateBtn = document.getElementById('translate-btn');
+        const translateIcon = document.getElementById('translate-icon');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const statsContainer = document.getElementById('stats-container');
+        const quizStartScreen = document.getElementById('quiz-start-screen');
+        const quizQuestionScreen = document.getElementById('quiz-question-screen');
+        const quizEndScreen = document.getElementById('quiz-end-screen');
+        const startQuizBtn = document.getElementById('start-quiz-btn');
+        const quizWordCount = document.getElementById('quiz-word-count');
+        const questionWord = document.getElementById('question-word');
+        const quizForm = document.getElementById('quiz-form');
+        const answerInput = document.getElementById('answer-input');
+        const restartQuizBtn = document.getElementById('restart-quiz-btn');
 
         // Foydalanuvchi autentifikatsiyasini tekshirish
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Foydalanuvchi tizimga kirgan (anonim tarzda)
                 userId = user.uid;
                 setupRealtimeListener(userId);
             } else {
-                // Foydalanuvchi tizimga kirmagan, anonim tarzda kirish
                 signInAnonymously(auth).catch((error) => {
                     console.error("Anonim kirishda xatolik:", error);
-                    appLoader.innerHTML = "<p class='text-red-500'>Xatolik: Ilovani yuklab bo'lmadi. Internet aloqasini tekshiring.</p>";
+                    appLoader.innerHTML = `<p class='text-red-500'>Xatolik: Ilovani yuklab bo'lmadi. Firebase sozlamalarini tekshiring.</p>`;
                 });
             }
         });
         
-        // Ma'lumotlarni real vaqtda tinglash
         function setupRealtimeListener(uid) {
             const docRef = doc(db, "users", uid);
-            
+            if (unsubscribe) unsubscribe(); 
+
             unsubscribe = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     vocabulary = docSnap.data();
-                    // Eskirgan formatni to'g'rilash
                     SHEETS.forEach(sheet => {
                         if (!vocabulary[sheet]) vocabulary[sheet] = [];
                     });
                 } else {
-                    // Yangi foydalanuvchi uchun bo'sh ma'lumotlar yaratish
                     vocabulary = SHEETS.reduce((acc, sheet) => ({ ...acc, [sheet]: [] }), {});
-                    setDoc(docRef, vocabulary); // Bazada yozib qo'yish
+                    setDoc(docRef, vocabulary); 
                 }
                 
-                // Ma'lumotlar yuklangach, ilovani ko'rsatish
                 appLoader.classList.add('hidden');
                 mainContainer.classList.remove('hidden');
                 
-                // UI'ni yangilash (masalan, statistika)
-                if (document.getElementById('page-stats').classList.contains('active')) {
-                    updateStats();
-                }
+                const activePage = Object.keys(pages).find(key => pages[key].classList.contains('active'));
+                if (activePage === 'stats') updateStats();
+                if (activePage === 'quiz') prepareQuiz();
+
+            }, (error) => {
+                console.error("Firestore tinglashda xatolik:", error);
+                appLoader.innerHTML = `<p class='text-red-500'>Xatolik: Ma'lumotlar bazasiga ulanib bo'lmadi.</p>`;
             });
         }
 
-        // Ma'lumotlarni Firebase'ga saqlash
         async function saveDataToFirebase() {
             if (!userId) return;
             const docRef = doc(db, "users", userId);
@@ -177,8 +212,81 @@
                 showMessage("Xatolik: Ma'lumotlarni saqlab bo'lmadi.", "error");
             }
         }
+
+        function showMessage(text, type = 'success', duration = 3000) {
+            messageBox.textContent = text;
+            messageBox.className = 'mt-4 text-center text-sm font-medium';
+            if (type === 'success') messageBox.classList.add('text-green-600');
+            else if (type === 'error') messageBox.classList.add('text-red-600');
+            else messageBox.classList.add('text-blue-600');
+            
+            setTimeout(() => {
+                if (messageBox.textContent === text) messageBox.textContent = '';
+            }, duration);
+        }
+
+        function switchPage(pageName) {
+            Object.values(pages).forEach(page => page.classList.remove('active'));
+            Object.values(navButtons).forEach(btn => btn.classList.remove('active'));
+            pages[pageName].classList.add('active');
+            navButtons[pageName].classList.add('active');
+            
+            if (pageName === 'stats') updateStats();
+            if (pageName === 'quiz') prepareQuiz();
+        }
+
+        Object.keys(navButtons).forEach(key => {
+            navButtons[key].addEventListener('click', () => switchPage(key));
+        });
+
+        async function getTranslation(englishWord) {
+            if (!englishWord) {
+                showMessage("Tarjima uchun inglizcha so'zni kiriting.", "error");
+                return null;
+            }
+            translateIcon.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            translateBtn.disabled = true;
+
+            const prompt = `Translate the following English word to Uzbek. Provide only the single, most common Uzbek translation without any extra text, explanations, or quotation marks. English word: "${englishWord}"`;
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`API so'rovi xatosi: ${response.status}`);
+                const result = await response.json();
+                if (result.candidates && result.candidates[0]?.content?.parts[0]) {
+                    let translatedText = result.candidates[0].content.parts[0].text.trim().toLowerCase();
+                    return translatedText.replace(/["'.]/g, '');
+                } else {
+                    throw new Error("Kutilmagan API javobi");
+                }
+            } catch (error) {
+                console.error("Tarjima xatosi:", error);
+                showMessage("Tarjima xizmatiga ulanib bo'lmadi.", "error");
+                return null;
+            } finally {
+                translateIcon.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+                translateBtn.disabled = false;
+            }
+        }
         
-        // So'z qo'shish logikasi (Firebase bilan)
+        translateBtn.addEventListener('click', async () => {
+            const englishWord = englishWordInput.value.trim();
+            const translated = await getTranslation(englishWord);
+            if (translated) {
+                uzbekWordInput.value = translated;
+                showMessage("So'z muvaffaqiyatli tarjima qilindi!", "success");
+            }
+        });
+
         addWordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitButton = addWordForm.querySelector('button[type=submit]');
@@ -200,10 +308,10 @@
                 return;
             }
 
-            const newWord = { english, uzbek, correct_streak: 0 };
+            const newWord = { id: Date.now().toString(), english, uzbek, correct_streak: 0 };
             vocabulary.Hourly.push(newWord);
             
-            await saveDataToFirebase(); // Ma'lumotlarni onlayn saqlash
+            await saveDataToFirebase();
             
             showMessage(`'${english}' so'zi muvaffaqiyatli qo'shildi!`, 'success');
             addWordForm.reset();
@@ -211,30 +319,119 @@
             submitButton.disabled = false;
         });
 
-        // Test logikasi (Firebase bilan)
-        async function checkAnswer() {
-            // ... (bu funksiya ichidagi logikasi deyarli o'zgarmaydi)
-            
-            // Faqat oxirida `saveData()` o'rniga `saveDataToFirebase()` chaqiriladi
-            if (userAnswer === correctAnswer) {
-                // ...
-            } else {
-                // ...
-            }
-            
-            await saveDataToFirebase(); // O'zgarishlarni saqlash
-            // ...
+        function updateStats() {
+            statsContainer.innerHTML = '';
+            let totalWords = 0;
+            SHEETS.forEach(sheet => {
+                const count = vocabulary[sheet]?.length || 0;
+                totalWords += count;
+                const statElement = document.createElement('div');
+                statElement.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-lg';
+                statElement.innerHTML = `<span class="font-semibold text-gray-700">${sheet}</span><span class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-full">${count} ta so'z</span>`;
+                statsContainer.appendChild(statElement);
+            });
+            const totalElement = document.createElement('div');
+            totalElement.className = 'flex justify-between items-center p-3 bg-gray-200 rounded-lg mt-4';
+            totalElement.innerHTML = `<span class="font-bold text-gray-800">Jami</span><span class="bg-gray-800 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">${totalWords} ta so'z</span>`;
+            statsContainer.appendChild(totalElement);
         }
 
-        // Qolgan barcha funksiyalar (showMessage, switchPage, updateStats, prepareQuiz, tarjima va hokazo)
-        // deyarli o'zgarishsiz qoladi, faqat `saveData` o'rniga `saveDataToFirebase` ishlatiladi.
-        // To'liq ishlashi uchun yuqoridagi kodni to'liq nusxalab, kerakli o'zgartirishlarni kiritish kerak.
-        // Bu yerda qisqalik uchun barcha funksiyalarni qayta yozmadim.
-        // Iltimos, yuqoridagi to'liq koddan foydalaning.
-        
-    </script>
-    <!-- Qolgan HTML va JS kodlari avvalgi versiyadagidek davom etadi. -->
-    <!-- Bu yerga to'liq kodni nusxalash kerak. -->
+        function prepareQuiz() {
+            currentQuiz = [];
+            SHEETS.forEach((sheetName) => {
+                if (sheetName !== 'Learned') {
+                    (vocabulary[sheetName] || []).forEach(word => {
+                        currentQuiz.push({ ...word, originalSheet: sheetName });
+                    });
+                }
+            });
 
+            quizQuestionScreen.classList.add('hidden');
+            quizEndScreen.classList.add('hidden');
+            quizStartScreen.classList.remove('hidden');
+
+            if (currentQuiz.length > 0) {
+                quizWordCount.textContent = `Test uchun ${currentQuiz.length} ta so'z mavjud.`;
+                startQuizBtn.disabled = false;
+            } else {
+                quizWordCount.textContent = "Test uchun so'zlar mavjud emas.";
+                startQuizBtn.disabled = true;
+            }
+        }
+
+        startQuizBtn.addEventListener('click', () => {
+            currentQuestionIndex = 0;
+            for (let i = currentQuiz.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentQuiz[i], currentQuiz[j]] = [currentQuiz[j], currentQuiz[i]];
+            }
+            quizStartScreen.classList.add('hidden');
+            quizQuestionScreen.classList.remove('hidden');
+            displayQuestion();
+        });
+
+        function displayQuestion() {
+            if (currentQuestionIndex >= currentQuiz.length) {
+                finishQuiz();
+                return;
+            }
+            const wordData = currentQuiz[currentQuestionIndex];
+            wordData.askInEnglish = Math.random() < 0.5;
+            questionWord.textContent = wordData.askInEnglish ? wordData.english : wordData.uzbek;
+            answerInput.value = '';
+            answerInput.focus();
+        }
+        
+        async function checkAnswer() {
+            const userAnswer = answerInput.value.trim().toLowerCase();
+            const wordData = currentQuiz[currentQuestionIndex];
+            if (!wordData) return;
+
+            const correctAnswer = wordData.askInEnglish ? wordData.uzbek : wordData.english;
+            const originalWord = (vocabulary[wordData.originalSheet] || []).find(w => w.id === wordData.id);
+
+            if (!originalWord) {
+                showMessage("Xatolik: So'z topilmadi.", "error");
+            } else if (userAnswer === correctAnswer) {
+                originalWord.correct_streak++;
+                showMessage(`To'g'ri! (${originalWord.correct_streak}/2)`, 'success', 2000);
+                
+                if (originalWord.correct_streak >= 2) {
+                    const currentSheetIndex = SHEETS.indexOf(wordData.originalSheet);
+                    if (currentSheetIndex < SHEETS.length - 1) {
+                        const nextSheetName = SHEETS[currentSheetIndex + 1];
+                        vocabulary[wordData.originalSheet] = vocabulary[wordData.originalSheet].filter(w => w.id !== originalWord.id);
+                        originalWord.correct_streak = 0;
+                        vocabulary[nextSheetName].push(originalWord);
+                        showMessage(`Ajoyib! '${originalWord.english}' so'zi ${nextSheetName} sahifasiga o'tdi!`, 'info', 3000);
+                    }
+                }
+            } else {
+                originalWord.correct_streak = 0;
+                showMessage(`Xato! To'g'ri javob: ${correctAnswer}`, 'error', 3000);
+            }
+            
+            await saveDataToFirebase();
+            currentQuestionIndex++;
+            setTimeout(displayQuestion, 1500);
+        }
+
+        quizForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            checkAnswer();
+        });
+        
+        function finishQuiz() {
+            quizQuestionScreen.classList.add('hidden');
+            quizEndScreen.classList.remove('hidden');
+        }
+        
+        restartQuizBtn.addEventListener('click', () => {
+            switchPage('add');
+        });
+
+        // Dastlabki yuklash
+        switchPage('add');
+    </script>
 </body>
 </html>
