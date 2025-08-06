@@ -36,7 +36,7 @@
         <div class="card p-6 md:p-8">
             <header class="text-center mb-6">
                 <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Lug'at Yodlash</h1>
-                <p class="text-gray-500 mt-1">Ma'lumotlar onlayn saqlanadi</p>
+                <p class="text-gray-500 mt-1">Aqlli takrorlash tizimi</p>
             </header>
 
             <div class="flex justify-center border-b border-gray-200 mb-6">
@@ -86,7 +86,7 @@
                         </div>
                          <div id="quiz-end-screen" class="hidden">
                              <h3 class="text-xl font-bold text-green-600">Tabriklaymiz!</h3>
-                             <p class="text-gray-600 mt-2">Siz barcha so'zlar bo'yicha testni yakunladingiz.</p>
+                             <p class="text-gray-600 mt-2">Siz barcha mavjud so'zlar bo'yicha testni yakunladingiz.</p>
                              <button id="restart-quiz-btn" class="quiz-btn mt-6 w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-indigo-700 transition">Bosh sahifaga</button>
                          </div>
                     </div>
@@ -107,7 +107,6 @@
     </div>
 
     <script type="module">
-        // Firebase SDK'larini import qilish
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -126,19 +125,23 @@
         };
         // =================================================================================
 
-        // Firebase'ni ishga tushirish
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
         const SHEETS = ["Hourly", "Daily", "Weekly", "Monthly", "Learned"];
+        const HOUR_MS = 60 * 60 * 1000;
+        const DAY_MS = 24 * HOUR_MS;
+        const WEEK_MS = 7 * DAY_MS;
+        const MONTH_MS = 30 * DAY_MS;
+
         let vocabulary = {};
         let userId = null;
         let unsubscribe = null; 
         let currentQuiz = [];
         let currentQuestionIndex = 0;
 
-        // HTML elementlarini topish
+        // Barcha elementlarni shu yerda e'lon qilish
         const mainContainer = document.getElementById('main-container');
         const appLoader = document.getElementById('app-loader');
         const navButtons = { add: document.getElementById('nav-add'), quiz: document.getElementById('nav-quiz'), stats: document.getElementById('nav-stats') };
@@ -161,7 +164,6 @@
         const answerInput = document.getElementById('answer-input');
         const restartQuizBtn = document.getElementById('restart-quiz-btn');
 
-        // Foydalanuvchi autentifikatsiyasini tekshirish
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userId = user.uid;
@@ -239,54 +241,6 @@
             navButtons[key].addEventListener('click', () => switchPage(key));
         });
 
-        async function getTranslation(englishWord) {
-            if (!englishWord) {
-                showMessage("Tarjima uchun inglizcha so'zni kiriting.", "error");
-                return null;
-            }
-            translateIcon.classList.add('hidden');
-            loadingSpinner.classList.remove('hidden');
-            translateBtn.disabled = true;
-
-            const prompt = `Translate the following English word to Uzbek. Provide only the single, most common Uzbek translation without any extra text, explanations, or quotation marks. English word: "${englishWord}"`;
-            const apiKey = ""; 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) throw new Error(`API so'rovi xatosi: ${response.status}`);
-                const result = await response.json();
-                if (result.candidates && result.candidates[0]?.content?.parts[0]) {
-                    let translatedText = result.candidates[0].content.parts[0].text.trim().toLowerCase();
-                    return translatedText.replace(/["'.]/g, '');
-                } else {
-                    throw new Error("Kutilmagan API javobi");
-                }
-            } catch (error) {
-                console.error("Tarjima xatosi:", error);
-                showMessage("Tarjima xizmatiga ulanib bo'lmadi.", "error");
-                return null;
-            } finally {
-                translateIcon.classList.remove('hidden');
-                loadingSpinner.classList.add('hidden');
-                translateBtn.disabled = false;
-            }
-        }
-        
-        translateBtn.addEventListener('click', async () => {
-            const englishWord = englishWordInput.value.trim();
-            const translated = await getTranslation(englishWord);
-            if (translated) {
-                uzbekWordInput.value = translated;
-                showMessage("So'z muvaffaqiyatli tarjima qilindi!", "success");
-            }
-        });
-
         addWordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitButton = addWordForm.querySelector('button[type=submit]');
@@ -308,7 +262,14 @@
                 return;
             }
 
-            const newWord = { id: Date.now().toString(), english, uzbek, correct_streak: 0 };
+            const now = Date.now();
+            const newWord = { 
+                id: now.toString(), 
+                english, 
+                uzbek, 
+                correct_streak: 0,
+                nextAskTime: now // Yangi so'z darhol so'ralishi uchun
+            };
             vocabulary.Hourly.push(newWord);
             
             await saveDataToFirebase();
@@ -337,11 +298,15 @@
         }
 
         function prepareQuiz() {
+            const now = Date.now();
             currentQuiz = [];
             SHEETS.forEach((sheetName) => {
                 if (sheetName !== 'Learned') {
                     (vocabulary[sheetName] || []).forEach(word => {
-                        currentQuiz.push({ ...word, originalSheet: sheetName });
+                        // So'rov vaqti kelgan so'zlarnigina testga qo'shish
+                        if (word.nextAskTime <= now) {
+                            currentQuiz.push({ ...word, originalSheet: sheetName });
+                        }
                     });
                 }
             });
@@ -351,16 +316,17 @@
             quizStartScreen.classList.remove('hidden');
 
             if (currentQuiz.length > 0) {
-                quizWordCount.textContent = `Test uchun ${currentQuiz.length} ta so'z mavjud.`;
+                quizWordCount.textContent = `Test uchun ${currentQuiz.length} ta so'z tayyor.`;
                 startQuizBtn.disabled = false;
             } else {
-                quizWordCount.textContent = "Test uchun so'zlar mavjud emas.";
+                quizWordCount.textContent = "Hozirda test uchun so'zlar mavjud emas. Keyinroq urinib ko'ring.";
                 startQuizBtn.disabled = true;
             }
         }
 
         startQuizBtn.addEventListener('click', () => {
             currentQuestionIndex = 0;
+            // So'zlarni aralashtirish
             for (let i = currentQuiz.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [currentQuiz[i], currentQuiz[j]] = [currentQuiz[j], currentQuiz[i]];
@@ -392,23 +358,48 @@
 
             if (!originalWord) {
                 showMessage("Xatolik: So'z topilmadi.", "error");
-            } else if (userAnswer === correctAnswer) {
-                originalWord.correct_streak++;
-                showMessage(`To'g'ri! (${originalWord.correct_streak}/2)`, 'success', 2000);
-                
-                if (originalWord.correct_streak >= 2) {
-                    const currentSheetIndex = SHEETS.indexOf(wordData.originalSheet);
-                    if (currentSheetIndex < SHEETS.length - 1) {
-                        const nextSheetName = SHEETS[currentSheetIndex + 1];
-                        vocabulary[wordData.originalSheet] = vocabulary[wordData.originalSheet].filter(w => w.id !== originalWord.id);
-                        originalWord.correct_streak = 0;
-                        vocabulary[nextSheetName].push(originalWord);
-                        showMessage(`Ajoyib! '${originalWord.english}' so'zi ${nextSheetName} sahifasiga o'tdi!`, 'info', 3000);
-                    }
-                }
             } else {
-                originalWord.correct_streak = 0;
-                showMessage(`Xato! To'g'ri javob: ${correctAnswer}`, 'error', 3000);
+                const now = Date.now();
+                if (userAnswer === correctAnswer) {
+                    originalWord.correct_streak++;
+                    showMessage(`To'g'ri! (${originalWord.correct_streak}/2)`, 'success', 2000);
+                    
+                    if (originalWord.correct_streak >= 2) {
+                        const currentSheetIndex = SHEETS.indexOf(wordData.originalSheet);
+                        const nextSheetIndex = currentSheetIndex + 1;
+
+                        if (nextSheetIndex < SHEETS.length) {
+                            const nextSheetName = SHEETS[nextSheetIndex];
+                            // Joriy ro'yxatdan o'chirish
+                            vocabulary[wordData.originalSheet] = vocabulary[wordData.originalSheet].filter(w => w.id !== originalWord.id);
+                            
+                            // Keyingi bosqichga tayyorlash
+                            originalWord.correct_streak = 0;
+                            if (nextSheetName === 'Daily') originalWord.nextAskTime = now + DAY_MS;
+                            else if (nextSheetName === 'Weekly') originalWord.nextAskTime = now + WEEK_MS;
+                            else if (nextSheetName === 'Monthly') originalWord.nextAskTime = now + MONTH_MS;
+                            else if (nextSheetName === 'Learned') originalWord.nextAskTime = Infinity; // Endi so'ralmaydi
+
+                            if (!vocabulary[nextSheetName]) vocabulary[nextSheetName] = [];
+                            vocabulary[nextSheetName].push(originalWord);
+                            showMessage(`Ajoyib! '${originalWord.english}' so'zi ${nextSheetName} sahifasiga o'tdi!`, 'info', 3000);
+                        }
+                    } else {
+                        // Ketma-ket 1-to'g'ri javob, 1 soatdan keyin yana so'raladi
+                        originalWord.nextAskTime = now + HOUR_MS;
+                    }
+                } else {
+                    // Xato javob berilsa
+                    showMessage(`Xato! To'g'ri javob: ${correctAnswer}`, 'error', 3000);
+                    originalWord.correct_streak = 0;
+                    // Agar so'z "Hourly"da bo'lmasa, uni "Hourly"ga qaytarish
+                    if (wordData.originalSheet !== 'Hourly') {
+                        vocabulary[wordData.originalSheet] = vocabulary[wordData.originalSheet].filter(w => w.id !== originalWord.id);
+                        vocabulary.Hourly.push(originalWord);
+                    }
+                    // 1 soatdan keyin qayta so'rash
+                    originalWord.nextAskTime = now + HOUR_MS;
+                }
             }
             
             await saveDataToFirebase();
@@ -428,6 +419,43 @@
         
         restartQuizBtn.addEventListener('click', () => {
             switchPage('add');
+        });
+
+        // Tarjima funksiyasi (avvalgidek qoladi)
+        translateBtn.addEventListener('click', async () => {
+            const englishWord = englishWordInput.value.trim();
+            if (!englishWord) {
+                showMessage("Tarjima uchun so'z kiriting", "error");
+                return;
+            }
+            translateIcon.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            translateBtn.disabled = true;
+
+            const prompt = `Translate the following English word to Uzbek. Provide only the single, most common Uzbek translation without any extra text, explanations, or quotation marks. English word: "${englishWord}"`;
+            const apiKey = firebaseConfig.apiKey;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`API xatosi: ${response.status}`);
+                const result = await response.json();
+                const translatedText = result.candidates?.[0]?.content?.parts?.[0]?.text.trim().toLowerCase().replace(/["'.]/g, '');
+                if (translatedText) {
+                    uzbekWordInput.value = translatedText;
+                    showMessage("So'z muvaffaqiyatli tarjima qilindi!", "success");
+                } else {
+                    throw new Error("Tarjima kelmadi");
+                }
+            } catch (error) {
+                console.error("Tarjima xatosi:", error);
+                showMessage("Tarjima xizmatiga ulanib bo'lmadi.", "error");
+            } finally {
+                translateIcon.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+                translateBtn.disabled = false;
+            }
         });
 
         // Dastlabki yuklash
