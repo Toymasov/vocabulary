@@ -512,17 +512,15 @@
             loadingSpinner.classList.remove('hidden');
             translateBtn.disabled = true;
 
-            const prompt = `Translate the following English word to Uzbek. Provide only the single, most common Uzbek translation without any extra text, explanations, or quotation marks. English word: "${englishWord}"`;
-            const apiKey = firebaseConfig.apiKey;
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(englishWord)}&langpair=en|uz`;
 
             try {
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const response = await fetch(apiUrl);
                 if (!response.ok) throw new Error(`API xatosi: ${response.status}`);
-                const result = await response.json();
-                const translatedText = result.candidates?.[0]?.content?.parts?.[0]?.text.trim().toLowerCase().replace(/["'.]/g, '');
-                if (translatedText) {
+                const data = await response.json();
+                
+                if (data.responseData && data.responseData.translatedText) {
+                    const translatedText = data.responseData.translatedText.toLowerCase();
                     uzbekWordInput.value = translatedText;
                     showMessage("So'z muvaffaqiyatli tarjima qilindi!", "success");
                 } else {
