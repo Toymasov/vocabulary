@@ -111,8 +111,9 @@
                             <h2 id="question-word" class="text-3xl font-bold text-indigo-600 mb-4"></h2>
                             <form id="quiz-form">
                                 <input type="text" id="answer-input" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-center text-lg" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                                <button type="submit" class="quiz-btn mt-4 w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-indigo-700 transition">Tekshirish</button>
+                                <button id="check-answer-btn" type="submit" class="quiz-btn mt-4 w-full bg-indigo-600 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-indigo-700 transition">Tekshirish</button>
                             </form>
+                            <button id="continue-quiz-btn" class="quiz-btn mt-4 w-full bg-green-500 text-white font-semibold py-2.5 px-4 rounded-md hover:bg-green-600 transition hidden">Davom etish</button>
                         </div>
                          <div id="quiz-end-screen" class="hidden">
                              <h3 class="text-xl font-bold text-green-600">Tabriklaymiz!</h3>
@@ -198,6 +199,8 @@
         const questionWord = document.getElementById('question-word');
         const quizForm = document.getElementById('quiz-form');
         const answerInput = document.getElementById('answer-input');
+        const checkAnswerBtn = document.getElementById('check-answer-btn');
+        const continueQuizBtn = document.getElementById('continue-quiz-btn');
         const restartQuizBtn = document.getElementById('restart-quiz-btn');
 
         googleLoginBtn.addEventListener('click', () => {
@@ -428,10 +431,16 @@
                 finishQuiz();
                 return;
             }
+            
+            messageBox.textContent = '';
+            answerInput.value = '';
+            answerInput.disabled = false;
+            checkAnswerBtn.disabled = false;
+            continueQuizBtn.classList.add('hidden');
+
             const wordData = currentQuiz[currentQuestionIndex];
             wordData.askInEnglish = Math.random() < 0.5;
             questionWord.textContent = wordData.askInEnglish ? wordData.english : wordData.uzbek;
-            answerInput.value = '';
             answerInput.focus();
         }
         
@@ -439,6 +448,9 @@
             const userAnswer = answerInput.value.trim().toLowerCase();
             const wordData = currentQuiz[currentQuestionIndex];
             if (!wordData) return;
+
+            answerInput.disabled = true;
+            checkAnswerBtn.disabled = true;
 
             const correctAnswer = wordData.askInEnglish ? wordData.uzbek : wordData.english;
             const originalWord = (vocabulary[wordData.originalSheet] || []).find(w => w.id === wordData.id);
@@ -449,7 +461,7 @@
                 const now = Date.now();
                 if (userAnswer === correctAnswer) {
                     originalWord.correct_streak++;
-                    showMessage(`To'g'ri! (${originalWord.correct_streak}/2)`, 'success', 2000);
+                    showMessage(`To'g'ri! (${originalWord.correct_streak}/2)`, 'success', 30000);
                     
                     if (originalWord.correct_streak >= 2) {
                         const currentSheetIndex = SHEETS.indexOf(wordData.originalSheet);
@@ -467,13 +479,13 @@
 
                             if (!vocabulary[nextSheetName]) vocabulary[nextSheetName] = [];
                             vocabulary[nextSheetName].push(originalWord);
-                            showMessage(`Ajoyib! '${originalWord.english}' so'zi ${nextSheetName} sahifasiga o'tdi!`, 'info', 3000);
+                            showMessage(`Ajoyib! '${originalWord.english}' so'zi ${nextSheetName} sahifasiga o'tdi!`, 'info', 30000);
                         }
                     } else {
                         originalWord.nextAskTime = now + HOUR_MS;
                     }
                 } else {
-                    showMessage(`Xato! To'g'ri javob: ${correctAnswer}`, 'error', 3000);
+                    showMessage(`Xato! To'g'ri javob: ${correctAnswer}`, 'error', 30000);
                     originalWord.correct_streak = 0;
                     if (wordData.originalSheet !== 'Hourly') {
                         vocabulary[wordData.originalSheet] = vocabulary[wordData.originalSheet].filter(w => w.id !== originalWord.id);
@@ -484,13 +496,23 @@
             }
             
             await saveDataToFirebase();
-            currentQuestionIndex++;
-            setTimeout(displayQuestion, 1500);
+            
+            if (currentQuestionIndex >= currentQuiz.length - 1) {
+                continueQuizBtn.textContent = "Tugatish";
+            } else {
+                continueQuizBtn.textContent = "Davom etish";
+            }
+            continueQuizBtn.classList.remove('hidden');
         }
 
         quizForm.addEventListener('submit', (e) => {
             e.preventDefault();
             checkAnswer();
+        });
+
+        continueQuizBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            displayQuestion();
         });
         
         function finishQuiz() {
